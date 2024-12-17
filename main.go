@@ -22,7 +22,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// 静的ファイルを提供するハンドラを設定
+	fs := http.FileServer(http.Dir("."))
+	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+
 	http.HandleFunc("/", handler)
+
 	log.Println("Server started at http://localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal("Failed to start server:", err)
