@@ -28,6 +28,11 @@ func main() {
 	fs := http.FileServer(http.Dir("assets"))
 	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
+	//icon情報の取得
+	http.HandleFunc("/asssets/icon/WebDevelopmenticon.png",func(w http.ResponseWriter, r * http.Request){
+		http.ServeFile(w,r,"/asssets/icon/WebDevelopmenticon.png")
+	})
+
 	// HTMLのルートハンドラ
 	http.HandleFunc("/", handler)
 
