@@ -1,43 +1,28 @@
 package main
 
 import (
-	"io"
+	"context"
+	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	// index.htmlを読み込む
-	htmlFile, err := os.Open("index.html")
-	if err != nil {
-		http.Error(w, "Could not open HTML file", http.StatusInternalServerError)
-		return
-	}
-	defer htmlFile.Close()
-	// Content-TypeをHTMLに設定
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(w, htmlFile); err != nil {
-		http.Error(w, "Failed to send HTML content", http.StatusInternalServerError)
-	}
+var googleOauthConfig = &oauth2.Config{
+	ClientID:     "YOUR_CLIENT_ID",     // Google Cloud Consoleで取得したクライアントID
+	ClientSecret: "YOUR_CLIENT_SECRET", // Google Cloud Consoleで取得したクライアントシークレット
+	RedirectURL:  "http://localhost:8080/callback",
+	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile"},
+	Endpoint:     google.Endpoint,
 }
 
-func main() {
-	// 静的ファイルを提供するハンドラを設定
-	fs := http.FileServer(http.Dir("assets"))
-	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+func loginHandler(w http.Response, r * http.Request){
+	url := googleOauthConfig.AuthCodeURL("ramdomastate" , oauth2.AccesTypeTypeOffline)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 
-	//icon情報の取得
-	http.HandleFunc("/asssets/icon/WebDevelopmenticon.png", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "/asssets/icon/WebDevelopmenticon.png")
-	})
-
-	// HTMLのルートハンドラ
-	http.HandleFunc("/", handler)
-
-	log.Println("Server started at http://localhost:8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal("Failed to start server:", err)
-	}
 }
+
