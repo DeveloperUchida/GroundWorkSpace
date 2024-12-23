@@ -20,9 +20,14 @@ var googleOauthConfig = &oauth2.Config{
 	Endpoint:     google.Endpoint,
 }
 
-func loginHandler(w http.Response, r * http.Request){
-	url := googleOauthConfig.AuthCodeURL("ramdomastate" , oauth2.AccesTypeTypeOffline)
+func loginHandler(w http.Response, r *http.Request) {
+	url := googleOauthConfig.AuthCodeURL("ramdomastate", oauth2.AccesTypeTypeOffline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-
 }
-
+func callbackHandler(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "No Code in the URL", http.StatusBadRequest)
+		return
+	}
+}
