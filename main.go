@@ -30,4 +30,14 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No Code in the URL", http.StatusBadRequest)
 		return
 	}
+
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func main() {
+
 }
