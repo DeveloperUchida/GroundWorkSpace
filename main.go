@@ -39,5 +39,7 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-
+//静的ファイルの提供
+	fs := http.FileServer(http.Dir("assets"))
+	http.Handle("/assets",http.StripPrefix())
 }
