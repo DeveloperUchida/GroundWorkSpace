@@ -41,5 +41,11 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 //静的ファイルの提供
 	fs := http.FileServer(http.Dir("assets"))
-	http.Handle("/assets",http.StripPrefix())
+	http.Handle("/assets",http.StripPrefix("/assets",fs))
+
+	//HTMLハンドラー
+	http.HandleFunc("/", handler)
+
+	//GoogleAuthハンドラー
+	http.HandleFunc("/login",loginHandler)
 }
