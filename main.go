@@ -3,49 +3,80 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
-var googleOauthConfig = &oauth2.Config{
-	ClientID:     "YOUR_CLIENT_ID",     // Google Cloud Consoleで取得したクライアントID
-	ClientSecret: "YOUR_CLIENT_SECRET", // Google Cloud Consoleで取得したクライアントシークレット
-	RedirectURL:  "http://localhost:8080/callback",
-	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile"},
-	Endpoint:     google.Endpoint,
-}
+var (
+	oauthConf        *oauth2.Config
+	oauthStateString = "randomstring" // セキュリティのためにランダムな文字列を使用
+)
 
-func loginHandler(w http.Response, r *http.Request) {
-	url := googleOauthConfig.AuthCodeURL("ramdomastate", oauth2.AccesTypeTypeOffline)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-}
-func callbackHandler(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		http.Error(w, "No Code in the URL", http.StatusBadRequest)
-		return
+	func init() {
+		log.Println("Client ID:", os.Getenv("GOOGLE_CLIENT_ID"))
+		oauthConf = &oauth2.Config{
+			RedirectURL:  "http://localhost:8080/callback",
+			ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),  // 環境変数からクライアントIDを取得
+			ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+			Endpoint:     google.Endpoint,
+		}
 	}
+	
 
-	token, err := googleOauthConfig.Exchange(context.Background(), code)
-	if err != nil {
-		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
 
 func main() {
-//静的ファイルの提供
-	fs := http.FileServer(http.Dir("assets"))
-	http.Handle("/assets",http.StripPrefix("/assets",fs))
+	http.HandleFunc("/", handleMain)
+	http.HandleFunc("/login", handleGoogleLogin)
+	http.HandleFunc("/callback", handleGoogleCallback)
 
-	//HTMLハンドラー
-	http.HandleFunc("/", handler)
+	fmt.Println("Started running on http://localhost:8080")
+	fmt.Println(http.ListenAndServe(":8080", nil))
+}
 
-	//GoogleAuthハンドラー
-	http.HandleFunc("/login",loginHandler)
+func handleMain(w http.ResponseWriter, r *http.Request) {
+	const htmlIndex = `<html><body><a href="/login">Google Login</a></body></html>`
+	fmt.Fprint(w, htmlIndex)
+
+}
+func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	url := oauthConf.AuthCodeURL(oauthStateString)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+	state := r.FormValue("state")
+	if state != oauthStateString {
+		fmt.Printf("invalid oauth state, expected '%s', got '%s'\n", oauthStateString, state)
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	code := r.FormValue("code")
+	token, err := oauthConf.Exchange(context.Background(), code)
+	if err != nil {
+		fmt.Printf("oauthConf.Exchange() failed with '%s'\n", err)
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	client := oauthConf.Client(context.Background(), token)
+	response, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		fmt.Printf("Get: %s\n", err)
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+	defer response.Body.Close()
+
+	userInfo := struct {
+		Email string `json:"email"`
+	}{}
+	json.NewDecoder(response.Body).Decode(&userInfo)
+	fmt.Fprintf(w, "User Info: %s\n", userInfo.Email)
 }
