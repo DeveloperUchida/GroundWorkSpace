@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -39,9 +40,12 @@ func main() {
 	fmt.Println(http.ListenAndServe(":8080", nil))
 }
 
-func handleMain(w http.ResponseWriter, r *http.Request) {
+func handleMain(w http.ResponseWriter, _ *http.Request) {
 	const htmlIndex = `<html><body><a href="/login">Google Login</a></body></html>`
-	fmt.Fprint(w, htmlIndex)
+	_, err := fmt.Fprint(w, htmlIndex)
+	if err != nil {
+		return
+	}
 
 }
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
@@ -72,11 +76,22 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
-	defer response.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(response.Body)
 
 	userInfo := struct {
 		Email string `json:"email"`
 	}{}
-	json.NewDecoder(response.Body).Decode(&userInfo)
-	fmt.Fprintf(w, "User Info: %s\n", userInfo.Email)
+	err = json.NewDecoder(response.Body).Decode(&userInfo)
+	if err != nil {
+		return
+	}
+	_, err = fmt.Fprintf(w, "User Info: %s\n", userInfo.Email)
+	if err != nil {
+		return
+	}
 }
